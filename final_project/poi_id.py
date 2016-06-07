@@ -17,7 +17,7 @@ from sklearn.svm import LinearSVC
 from sklearn.neural_network import BernoulliRBM
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.grid_search import GridSearchCV
+from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import f1_score, recall_score, accuracy_score, \
 precision_score, classification_report
 from sklearn.preprocessing import MinMaxScaler
@@ -253,9 +253,9 @@ def scale_features(features):
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html
 
-def setup_clf_list():
+def create_clf_list():
     clf_list = []
-
+    
     clf_tree = DecisionTreeClassifier()
     params_tree = { "min_samples_split":[2, 5, 10, 20],
                     "criterion": ('gini', 'entropy')
@@ -288,7 +288,7 @@ def setup_clf_list():
     clf_knn = KNeighborsClassifier()
     params_knn = {"n_neighbors":[2, 5], "p":[2,3]}
     clf_list.append( (clf_knn, params_knn) )
-
+    
     #
     clf_log = LogisticRegression()
     params_log = {  "C":[0.05, 0.5, 1, 10, 10**2,10**5,10**10],
@@ -301,10 +301,10 @@ def setup_clf_list():
 
 
     return clf_list
-def make_pipeline(clf_list):
+def create_pipeline(clf_list):
 
     pca = PCA()
-    params_pca = {"pca__n_components":[2, 3, 4, 5, 10, 15], 
+    params_pca = {"pca__n_components":[2, 3, 4, 5, 10, 15, 20], 
                   "pca__whiten": [False]}
 
     for i in range(len(clf_list)):
@@ -325,10 +325,14 @@ def make_pipeline(clf_list):
     
 def run_clf(clf_list, features, labels, cv, metric='f1', v=0):
 
-
+    n_iter_search = 20
     best_estimators = []
     for clf, params in clf_list:
-        clf = GridSearchCV(clf, params, cv=cv, n_jobs=-1, scoring=metric, verbose=v)
+        #clf = GridSearchCV(clf, params, cv=cv, n_jobs=-1, scoring=metric, verbose=v)
+        print "Running RandomizedSearchCV"   
+        clf = RandomizedSearchCV(clf, params, 
+                                 n_iter=n_iter_search, cv=cv, 
+                                 n_jobs=-1, scoring=metric, verbose=v)        
         clf = clf.fit(features, labels)
         best_estimators.append(clf.best_estimator_)
 
@@ -382,19 +386,19 @@ if __name__=="__main__":
     
     
     
-    
-    # StratifiedShuffleSplit for 1000 folds cv splits     
+    '''
+    # Find the best classifier: StratifiedShuffleSplit for 1000 folds cv splits     
     cv = StratifiedShuffleSplit(labels, n_iter=1000, test_size=0.1)
             
     # generate list of classifiers and params
-    clf_list = setup_clf_list()
+    clf_list = create_clf_list()
     
     evaluation_matrix = [[] for n in range(6)] # number of classifers
-    if True: # if True use PCA
-        print "Using Pipeline (MinMaxScaler, SelectKBest, PCA)"        
-        clf_list = make_pipeline(clf_list)
-        
+    
+    print "Using Pipeline (PCA)"        
+    clf_list = create_pipeline(clf_list)
     best_clf = run_clf(clf_list, features, labels, cv, 'f1', 3)
+    
     for i, clf in enumerate(best_clf):
         scores = evaluate_clf(clf, features, labels)
         evaluation_matrix[i].append(scores)
@@ -409,41 +413,36 @@ if __name__=="__main__":
     scores = summary_list[clf]
     print "Best classifier is ", clf
     print "With scores of f1, recall, precision: ", scores
-    
     '''
     
     
-    if False: # if True use PCA
-        print "Using PCA"        
-        clf_list = pca_pipeline(clf_list)
     
-    for i in range(1000): #run multiple times   
-        features_train, features_test, labels_train, labels_test = \
-        train_test_split(features, labels, test_size=0.3, random_state=42)
-        best_clf = run_clf(clf_list, features_train, labels_train, sk_fold)
-        for i, clf in enumerate(best_clf):
-            scores = evaluate_clf(clf, features_test, labels_test)
-            evaluation_matrix[i].append(scores)
-    
-    summary_list = {}
-    for i, col in enumerate(evaluation_matrix):   
-        summary_list[best_clf[i]] = (sum(asarray(col)))
-    
-    ordered_list = sorted(summary_list.keys() ,
-                            key = lambda k: summary_list[k][0], reverse=True)
-    
-    clf = ordered_list[0]
-    scores = summary_list[clf]
-    print "Best classifier is ", clf
-    print "With scores of f1, recall, precision: ", scores
-    '''    
     '''
-    Best classifier
-    LogisticRegression(C=10, class_weight='balanced', dual=False,
+    # Best classifier
+    Pipeline(steps=[('pca', PCA(copy=True, n_components=20, whiten=False)), 
+    ('clf_0', LogisticRegression(C=0.5, class_weight='balanced', dual=False,
           fit_intercept=True, intercept_scaling=1, max_iter=100,
           multi_class='ovr', n_jobs=1, penalty='l1', random_state=42,
-          solver='liblinear', tol=0.1, verbose=0, warm_start=False)
+          solver='liblinear', tol=1e-10, verbose=0, warm_start=False))])
+    Accuracy: 0.80633       Precision: 0.36342      Recall: 0.60200 
+    F1: 0.45323     F2: 0.53213
+    Total predictions: 15000
+    True positives: 1204
+    False positives: 2109
+    False negatives:  796
+    True negatives: 10891
     '''
+    # best performing classifier found by randomizedsearchcv
+    clf_logistic = LogisticRegression(  C=.5,
+                                        penalty='l1',
+                                        random_state=42,
+                                        tol=1e-10,
+                                        class_weight='balanced')
+    
+    pca = PCA(n_components=20, whiten=False)
+    
+    clf = Pipeline(steps=[("pca", pca), ("logistic", clf_logistic)])
+    
 
 
     test_classifier(clf, my_dataset, features_list)
