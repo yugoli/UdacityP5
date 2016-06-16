@@ -254,7 +254,7 @@ def scale_features(features):
 
 def create_clf_list():
     clf_list = []
-    
+    '''
     #
     clf_nb = GaussianNB()
     params_nb = {}
@@ -272,7 +272,7 @@ def create_clf_list():
     clf_knn = KNeighborsClassifier()
     params_knn = {"n_neighbors":[2, 5], "p":[2,3]}
     clf_list.append( (clf_knn, params_knn) )
-                                                                                                        
+    '''                                                                                                        
     #
     clf_log = LogisticRegression()
     params_log = {  "C":[0.05, 0.5, 1, 10],
@@ -391,7 +391,8 @@ if __name__=="__main__":
     
     print "Using Pipeline"        
     clf_list = create_pipeline(clf_list)
-    best_clf = run_clf(clf_list, features, labels, cv, 'f1', 3, True)
+    #best_clf = run_clf(clf_list, features, labels, cv, 'f1', 3, True)
+    best_clf = run_clf(clf_list, features, labels, cv, 'f1', 3)
     
     for i, clf in enumerate(best_clf):
         scores = evaluate_clf(clf, features, labels)
@@ -411,32 +412,77 @@ if __name__=="__main__":
     
     
     
+    ''' Results
+    {'clf_3__C': 10, 'clf_3__class_weight': 'balanced', 'pca__n_components': 2, 'pca__whiten': False, 'clf_3__tol': 1e-05, 'kbest__k': 13, 'clf_3__penalty': 'l2', 'clf_3__random_state': 42}
+Pipeline(steps=[('kbest', SelectKBest(k=13, score_func=<function f_classif at 0x000000000994C828>)), ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), ('pca', PCA(copy=True, n_components=4, whiten=False)), ('clf_0', GaussianNB())]) 
+(0.35294117647058826, 0.33333333333333331, 0.375)
+Pipeline(steps=[('kbest', SelectKBest(k=7, score_func=<function f_classif at 0x000000000994C828>)), ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), ('pca', PCA(copy=True, n_components=3, whiten=False)), ('clf_1', LinearSVC(C=5, class_weight='balanced', dual=True, fit_intercept=True,
+     intercept_scaling=1, loss='squared_hinge', max_iter=1000,
+     multi_class='ovr', penalty='l2', random_state=None, tol=1e-10,
+     verbose=0))]) 
+(0.51851851851851849, 0.77777777777777779, 0.3888888888888889)
+Pipeline(steps=[('kbest', SelectKBest(k=24, score_func=<function f_classif at 0x000000000994C828>)), ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), ('pca', PCA(copy=True, n_components=1, whiten=False)), ('clf_2', KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
+           metric_params=None, n_jobs=1, n_neighbors=5, p=3,
+           weights='uniform'))]) 
+(0.34782608695652178, 0.22222222222222221, 0.80000000000000004)
+Pipeline(steps=[('kbest', SelectKBest(k=13, score_func=<function f_classif at 0x000000000994C828>)), ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), ('pca', PCA(copy=True, n_components=2, whiten=False)), ('clf_3', LogisticRegression(C=10, class_weight='balanced', dual=False,
+          fit_intercept=True, intercept_scaling=1, max_iter=100,
+          multi_class='ovr', n_jobs=1, penalty='l2', random_state=42,
+          solver='liblinear', tol=1e-05, verbose=0, warm_start=False))]) 
+(0.44444444444444442, 0.66666666666666663, 0.33333333333333331)
+
+    # Best classifier found by Randomizedsearchcv 
+    Best classifier is  Pipeline(steps=[('kbest', 
+    SelectKBest(k=7, score_func=<function f_classif at 0x000000000994C828>)), 
+    ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), 
+    ('pca', PCA(copy=True, n_components=3, whiten=False)), 
+    ('clf_1', LinearSVC(C=5, class_weight='balanced', dual=True, 
+    fit_intercept=True, intercept_scaling=1, loss='squared_hinge', 
+    max_iter=1000, multi_class='ovr', penalty='l2', random_state=None, 
+    tol=1e-10, verbose=0))])
+    With scores of f1, recall, precision: [ 0.51851852  0.77777778  0.38888889]
+    tester.py results
+    Accuracy: 0.77080    Precision: 0.32913   Recall: 0.69250 
+    F1: 0.44620     F2: 0.56725
+    Total predictions: 15000   True positives: 1385 False positives: 2823   
+    False negatives:  615   True negatives: 10177
     '''
-    # Best classifier
-    Pipeline(steps=[('pca', PCA(copy=True, n_components=20, whiten=False)), 
-    ('clf_0', LogisticRegression(C=0.5, class_weight='balanced', dual=False,
+    '''
+    # Best classifier found by GridSearchCV
+    
+    {'clf_3__C': 100, 'clf_3__class_weight': 'balanced', 'pca__n_components': 3, 'pca__whiten': False, 'clf_3__tol': 1e-05, 'kbest__k': 10, 'clf_3__penalty': 'l1', 'clf_3__random_state': 42}
+Pipeline(steps=[('kbest', SelectKBest(k=10, score_func=<function f_classif at 0x000000000994C828>)), ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), ('pca', PCA(copy=True, n_components=5, whiten=False)), ('clf_0', GaussianNB())]) 
+(0.375, 0.33333333333333331, 0.42857142857142855)
+Pipeline(steps=[('kbest', SelectKBest(k=8, score_func=<function f_classif at 0x000000000994C828>)), ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), ('pca', PCA(copy=True, n_components=3, whiten=False)), ('clf_1', LinearSVC(C=10, class_weight='balanced', dual=True, fit_intercept=True,
+     intercept_scaling=1, loss='squared_hinge', max_iter=1000,
+     multi_class='ovr', penalty='l2', random_state=None, tol=0.1,
+     verbose=0))]) 
+(0.51724137931034475, 0.83333333333333337, 0.375)
+Pipeline(steps=[('kbest', SelectKBest(k=6, score_func=<function f_classif at 0x000000000994C828>)), ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), ('pca', PCA(copy=True, n_components=1, whiten=False)), ('clf_2', KNeighborsClassifier(algorithm='auto', leaf_size=30, metric='minkowski',
+           metric_params=None, n_jobs=1, n_neighbors=5, p=2,
+           weights='uniform'))]) 
+(0.34482758620689657, 0.27777777777777779, 0.45454545454545453)
+Pipeline(steps=[('kbest', SelectKBest(k=10, score_func=<function f_classif at 0x000000000994C828>)), ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), ('pca', PCA(copy=True, n_components=3, whiten=False)), ('clf_3', LogisticRegression(C=100, class_weight='balanced', dual=False,
           fit_intercept=True, intercept_scaling=1, max_iter=100,
           multi_class='ovr', n_jobs=1, penalty='l1', random_state=42,
-          solver='liblinear', tol=1e-10, verbose=0, warm_start=False))])
-    Accuracy: 0.80633       Precision: 0.36342      Recall: 0.60200 
-    F1: 0.45323     F2: 0.53213
-    Total predictions: 15000
-    True positives: 1204
-    False positives: 2109
-    False negatives:  796
-    True negatives: 10891
-    '''
-    '''
-    # best performing classifier found by randomizedsearchcv
-    clf_logistic = LogisticRegression(  C=.5,
-                                        penalty='l1',
-                                        random_state=42,
-                                        tol=1e-10,
-                                        class_weight='balanced')
-    
-    pca = PCA(n_components=20, whiten=False)
-    
-    clf = Pipeline(steps=[("pca", pca), ("logistic", clf_logistic)])
+          solver='liblinear', tol=1e-05, verbose=0, warm_start=False))]) 
+(0.5, 0.83333333333333337, 0.35714285714285715)
+
+
+    Best classifier is  Pipeline(steps=[('kbest', SelectKBest(k=8, 
+    score_func=<function f_classif at 0x000000000994C828>)), 
+    ('scaler', MinMaxScaler(copy=True, feature_range=(0, 1))), 
+    ('pca', PCA(copy=True, n_components=3, whiten=False)), 
+    ('clf_1', LinearSVC(C=10, class_weight='balanced', dual=True, 
+    fit_intercept=True, intercept_scaling=1, loss='squared_hinge', 
+    max_iter=1000, multi_class='ovr', penalty='l2', random_state=None, tol=0.1,
+    verbose=0))])
+    With scores of f1, recall, precision: [ 0.51724138  0.83333333  0.375     ]
+    tester.py results
+    Accuracy: 0.76507    Precision: 0.32483   Recall: 0.70650 
+    F1: 0.44504     F2: 0.57206
+    Total predictions: 15000        True positives: 1413    
+    False positives: 2937   False negatives:  587   True negatives: 10063
     '''
     
     print "\n******************"
