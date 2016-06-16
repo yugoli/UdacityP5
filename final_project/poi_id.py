@@ -12,10 +12,7 @@ from sklearn.feature_selection import SelectKBest, f_classif
 from sklearn.decomposition import PCA
 from sklearn.cross_validation import train_test_split, StratifiedShuffleSplit
 from sklearn.naive_bayes import GaussianNB
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.svm import LinearSVC
-from sklearn.neural_network import BernoulliRBM
-from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.grid_search import GridSearchCV, RandomizedSearchCV
 from sklearn.metrics import f1_score, recall_score, accuracy_score, \
@@ -79,7 +76,7 @@ with open("final_project_dataset.pkl", "r") as data_file:
 
 def eda(data_dict, features_list, fillnan=True):
     # Exploring dataset
-    
+    print "\nExploring Dataset:"
     print "count of people in dataset: ", len(data_dict)
     poicount = sum(p['poi']==1 for p in data_dict.values())
     print "count of poi is: ", poicount
@@ -118,24 +115,26 @@ def eda(data_dict, features_list, fillnan=True):
         sns.plt.show()
     '''
     
-    top_bonus = []
+    top = []
     for key in data_dict:
-        val = data_dict[key]['bonus']
-        #val = data_dict[key]['salary']
+        #val = data_dict[key]['bonus']
+        val = data_dict[key]['salary']
         if val == 'NaN':
             continue;    
-        top_bonus.append((key,int(val)))
+        top.append((key,int(val)))
     #print top 3 bonuses    
-    print (sorted(top_bonus,key=lambda x:x[1],reverse=True)[:3]), "\n"
+    print (sorted(top,key=lambda x:x[1],reverse=True)[:3]), "\n"
 
 def remove_outliers(data_dict):
     ### Task 2: Remove outliers
-    outliers = ['TOTAL', 'THE TRAVEL AGENCY IN THE PARK']
+    print "Removed outliers."
+    outliers = ['TOTAL', 'THE TRAVEL AGENCY IN THE PARK', 'LOCKHART EUGENE E']
     for outlier in outliers:
         data_dict.pop(outlier, 0)
     return data_dict
 def correct_records(data_dict):
     #Fix two records
+    print "Corrected 2 records."
     data_dict['BELFER ROBERT'] = {'bonus': 'NaN',
                               'deferral_payments': 'NaN',
                               'deferred_income': -102500,
@@ -256,12 +255,10 @@ def scale_features(features):
 def create_clf_list():
     clf_list = []
     
-    clf_tree = DecisionTreeClassifier()
-    params_tree = { "min_samples_split":[2, 5, 10, 20],
-                    "criterion": ('gini', 'entropy')
-                    }
-    clf_list.append( (clf_tree, params_tree) )
-
+    #
+    clf_nb = GaussianNB()
+    params_nb = {}
+    clf_list.append( (clf_nb, params_nb) )
     #
     clf_linearsvm = LinearSVC()
     params_linearsvm = {"C": [0.5, 1, 5, 10, 100, 10**10],
@@ -272,26 +269,13 @@ def create_clf_list():
     clf_list.append( (clf_linearsvm, params_linearsvm) )
 
     #
-    clf_adaboost = AdaBoostClassifier()
-    params_adaboost = { "n_estimators":[20, 25, 50, 100]
-                        }
-    clf_list.append( (clf_adaboost, params_adaboost) )
-
-    #
-    clf_random_tree = RandomForestClassifier()
-    params_random_tree = {  "n_estimators":[2, 3, 5],
-                            "criterion": ('gini', 'entropy')
-                            }
-    clf_list.append( (clf_random_tree, params_random_tree) )
-
-    #
     clf_knn = KNeighborsClassifier()
     params_knn = {"n_neighbors":[2, 5], "p":[2,3]}
     clf_list.append( (clf_knn, params_knn) )
-    
+                                                                                                        
     #
     clf_log = LogisticRegression()
-    params_log = {  "C":[0.05, 0.5, 1, 10, 10**2,10**5,10**10],
+    params_log = {  "C":[0.05, 0.5, 1, 10],
                     "penalty":['l1','l2'],
                     "random_state": [42],                    
                     "tol":[10**-1, 10**-5, 10**-10],
@@ -304,8 +288,11 @@ def create_clf_list():
 def create_pipeline(clf_list):
 
     pca = PCA()
-    params_pca = {"pca__n_components":[2, 3, 4, 5, 10, 15, 20], 
-                  "pca__whiten": [False]}
+    scaler = MinMaxScaler()
+    selector = SelectKBest(f_classif)
+    params_update = {"kbest__k" : range(5, 26),
+                     "pca__n_components":[1, 2, 3, 4, 5], 
+                     "pca__whiten": [False]}
 
     for i in range(len(clf_list)):
 
@@ -318,36 +305,44 @@ def create_pipeline(clf_list):
         for key, value in params.iteritems():
             new_params[name + "__" + key] = value
 
-        new_params.update(params_pca)
-        clf_list[i] = (Pipeline([("pca", pca), (name, clf)]), new_params)
+        new_params.update(params_update)
+        clf_list[i] = (Pipeline([('kbest', selector),
+                        ("scaler",scaler),
+                        ("pca", pca), 
+                        (name, clf)]), new_params)
 
     return clf_list
     
-def run_clf(clf_list, features, labels, cv, metric='f1', v=0):
+def run_clf(clf_list, features, labels, cv, metric='f1', v=0, random=False):
 
     n_iter_search = 20
     best_estimators = []
     for clf, params in clf_list:
-        #clf = GridSearchCV(clf, params, cv=cv, n_jobs=-1, scoring=metric, verbose=v)
-        print "Running RandomizedSearchCV"   
-        clf = RandomizedSearchCV(clf, params, 
-                                 n_iter=n_iter_search, cv=cv, 
-                                 n_jobs=-1, scoring=metric, verbose=v)        
+        if random:        
+            print "\nRunning RandomizedSearchCV on \n", clf
+            print "\n", params 
+            clf = RandomizedSearchCV(clf, params, 
+                                     n_iter=n_iter_search, cv=cv, 
+                                     n_jobs=-1, scoring=metric, verbose=v)        
+        else:
+            print "\nRunning GridSearchCV on \n", clf
+            print "\n", params           
+            clf = GridSearchCV(clf, params, cv=cv, n_jobs=-1, 
+                               scoring=metric, verbose=v)
         clf = clf.fit(features, labels)
+        print "Best parameters: \n", clf.best_params_        
         best_estimators.append(clf.best_estimator_)
 
     return best_estimators
 
-def evaluate_clf(clf, features_test, labels_test):
+def evaluate_clf(clf, features, labels):
 
 
-    labels_pred = clf.predict(features_test)
-
-    f1 = f1_score(labels_test, labels_pred)
-    recall = recall_score(labels_test, labels_pred)
-    precision = precision_score(labels_test, labels_pred)
+    labels_pred = clf.predict(features)
+    f1 = f1_score(labels, labels_pred)
+    recall = recall_score(labels, labels_pred)
+    precision = precision_score(labels, labels_pred)
     return f1, recall, precision    
-
 
 if __name__=="__main__":
     
@@ -369,38 +364,38 @@ if __name__=="__main__":
     # exploratory data analysis & fillna's
     eda(data_dict, features_list)
     
-    # add email and financial features
+    # add email and financial features to list
     data_dict, features_list = create_new_features(data_dict, features_list)
     
-    # scale the features
-    #features = scale_features(features)
-    
-    #use selectkbest to select top 10 features
-    #features_list = select_features(features, labels, features_list, 10)
-    
-    
+    # create features from dataset
     my_dataset = data_dict
     data = featureFormat(my_dataset, features_list, sort_keys = True)
     labels, features = targetFeatureSplit(data)
     
+    # scale the features - implemented in pipeline
+    #features = scale_features(features)
+    
+    #use selectkbest to select top features  - implemented in pipeline
+    #features_list = select_features(features, labels, features_list, 20)
     
     
+    # Find the best classifier: StratifiedShuffleSplit for 100 folds cv splits     
+    cv = StratifiedShuffleSplit(labels, n_iter=100, test_size=0.1, \
+                                random_state=42)
     
-    '''
-    # Find the best classifier: StratifiedShuffleSplit for 1000 folds cv splits     
-    cv = StratifiedShuffleSplit(labels, n_iter=1000, test_size=0.1)
-            
+
     # generate list of classifiers and params
     clf_list = create_clf_list()
     
-    evaluation_matrix = [[] for n in range(6)] # number of classifers
+    evaluation_matrix = [[] for n in range(4)] # number of classifers
     
-    print "Using Pipeline (PCA)"        
+    print "Using Pipeline"        
     clf_list = create_pipeline(clf_list)
-    best_clf = run_clf(clf_list, features, labels, cv, 'f1', 3)
+    best_clf = run_clf(clf_list, features, labels, cv, 'f1', 3, True)
     
     for i, clf in enumerate(best_clf):
         scores = evaluate_clf(clf, features, labels)
+        print clf, "\n", scores        
         evaluation_matrix[i].append(scores)
     summary_list = {}
     for i, col in enumerate(evaluation_matrix):   
@@ -413,7 +408,6 @@ if __name__=="__main__":
     scores = summary_list[clf]
     print "Best classifier is ", clf
     print "With scores of f1, recall, precision: ", scores
-    '''
     
     
     
@@ -432,6 +426,7 @@ if __name__=="__main__":
     False negatives:  796
     True negatives: 10891
     '''
+    '''
     # best performing classifier found by randomizedsearchcv
     clf_logistic = LogisticRegression(  C=.5,
                                         penalty='l1',
@@ -442,8 +437,9 @@ if __name__=="__main__":
     pca = PCA(n_components=20, whiten=False)
     
     clf = Pipeline(steps=[("pca", pca), ("logistic", clf_logistic)])
+    '''
     
-
+    print "\n******************"
 
     test_classifier(clf, my_dataset, features_list)
     
